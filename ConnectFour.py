@@ -43,11 +43,12 @@ class ConnectFour:
     defaultBiasFactor = math.sqrt(2)
     columnPriority = [0, 1, 2, 3, 2, 1, 0]
     UCTsortKey = lambda p: (p[0], ConnectFour.columnPriority[p[1]])
+    turnString = {None: "-", True: "O", False: "X"}
 
     # -------------------------------------------------------------------------
-    # Initialization
+    # Primitive Function
 
-    def __init__(self, col, turn, parent = None):
+    def __init__(self, col, turn, parent = None): # Put (col, turn) from parent node
         self.childs = [None] * ConnectFour.maxRow
         self.parent = parent
         self.col = col
@@ -57,10 +58,13 @@ class ConnectFour:
         self.simul_win = 0
         if parent is None:
             self.board = [[None]*ConnectFour.maxRow for i in range(ConnectFour.maxCol)]
-            self.board[col][0] = self.turn
+            if col is not None:
+                self.board[col][0] = self.turn
         else:
             if self.parent.turn is self.turn:
                 raise ValueError("Parent turn and self turn is same")
+            elif col is None:
+                raise ValueError("None turn cannot be on non-root node")
             elif self.parent.childs[col] is not None:
                 raise KeyError("Already child exists")
             else:
@@ -69,8 +73,25 @@ class ConnectFour:
 
         self.expanded = False
 
+    def __str__(self):
+        s = []
+        s.append("-"*50)
+        s.append("Board ID: %d" % (id(self),))
+        if self.parent is not None:
+            s[-1] += " (Parent ID: %d)" % (id(self.parent),)
+        if self.col is not None:
+            s.append("Last placed with turn<%s> at column %d" % (ConnectFour.turnString[self.turn], self.col))
+        else:
+            s.append("Initial board")
+        s.append("Simulated: Win %d / Total %d (UCT %s)" % (self.simul_win, self.simul_total, str(self.UCT())))
+        s.append("")
+        for row in range(ConnectFour.maxRow-1, -1, -1):
+            s.append(("%d:" % (row,)) + " ".join(ConnectFour.turnString[self.board[col][row]] for col in range(ConnectFour.maxCol)))
+        s.append("")
+        return "\n".join(s)
+
     # -------------------------------------------------------------------------
-    # Primitive Functions: Put new on board, Check result, etc.
+    # Basic Functions: Put new on board, Check result, etc.
 
     def put(self, col, turn):
         return boardPut(self.board, col, turn)
@@ -83,6 +104,26 @@ class ConnectFour:
         while temp.parent is not None:
             temp = temp.parent
         return temp
+
+    # -------------------------------------------------------------------------
+    # MonteCarlo UCT
+
+    def UCT(self, C = defaultBiasFactor):
+        t = self.root().simul_total
+        if t == 0:
+            return -math.inf
+        elif self.simul_total == 0:
+            return math.inf
+        else:
+            return self.simul_win/self.simul_total + C * math.sqrt(math.log(t, math.e) / self.simul_total)
+
+    def maxUCTChild(self):
+        UCTs = []
+        for i in range(ConnectFour.maxCol):
+            if self.childs[i] is not None:
+                UCTs.append((self.childs[i].UCT(), i))
+        UCTs.sort(key=ConnectFour.UCTsortKey)
+        return UCTs[-1]
 
     # -------------------------------------------------------------------------
     # MonteCarlo SubFunc
@@ -112,23 +153,6 @@ class ConnectFour:
             tempTurn = not tempTurn
         return boardResult(board)
 
-    def UCT(self, C = defaultBiasFactor):
-        t = self.root().simul_total
-        if t == 0:
-            return -math.inf
-        elif self.simul_total == 0:
-            return math.inf
-        else:
-            return self.simul_win/self.simul_total + C * math.sqrt(math.log(t, math.e) / self.simul_total)
-
-    def maxUCTChild(self):
-        UCTs = []
-        for i in range(ConnectFour.maxCol):
-            if self.childs[i] is not None:
-                UCTs.append((self.childs[i].UCT(), i))
-        UCTs.sort(key=ConnectFour.UCTsortKey)
-        return UCTs[-1]
-
     def simulResultUpdate(self, winCount, totalCount):
         self.simul_win += winCount
         self.simul_total += totalCount
@@ -144,7 +168,7 @@ class ConnectFour:
         maxUCT, maxUCTIndex = self.maxUCTChild()
         return maxUCTIndex
 
-    def simulation(self, targetTurn, maxOverTime = 110):
+    def simulation(self, targetTurn, maxOverTime = 15):
         startedTime = time.time()
         simulated_total = 0
         simulated_win = 0
@@ -157,6 +181,34 @@ class ConnectFour:
 
 
 def play(first = True):
+
+    startCol = input("Input column number to start your turn first.\nIf you don't enter anything then I will start first: ")
+    node = ConnectFour(int(startCol), False) if startCol.isdigit() else ConnectFour(None, False)
+
+    while True:
+        mode = input("""Input the mode(case insensitive). 
+        'MonteCarlo' for Monte Carlo search, 
+        'Rule' for rule value, 
+        0~6 for column locating.
+        Your mode: """)
+        if mode.lower() == 'montecarlo':
+            pass
+        elif mode.lower() == 'rule':
+            pass
+        elif mode.isdigit():
+            mode = int(mode)
+            if mode not in range(ConnectFour.maxCol):
+                print("Invalid column number. Input again.")
+                continue
+            elif node.board[mode][-1] is not None:
+                print("Already full-filled column. Input again.")
+                continue
+            elif input("""ARE YOU SURE TO PUT ON COLUMN %d? 
+            IF YES, THEN WRITE 'YES' AND PRESS ENTER, OTHERWISE JUST ENTER: """ % (mode,)).lower() != "yes":
+                print("Ok, you rejected your input. Input again.")
+        else:
+            print("Wrong mode, input again.")
+            continue
 
     pass
 
