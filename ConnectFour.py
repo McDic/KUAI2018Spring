@@ -49,7 +49,7 @@ class ConnectFour:
     # Primitive Function
 
     def __init__(self, col, turn, parent = None): # Put (col, turn) from parent node
-        self.childs = [None] * ConnectFour.maxRow
+        self.childs = [None] * ConnectFour.maxCol
         self.parent = parent
         self.col = col
         self.turn = turn
@@ -104,6 +104,12 @@ class ConnectFour:
         while temp.parent is not None:
             temp = temp.parent
         return temp
+
+    # -------------------------------------------------------------------------
+    # Rule value
+
+    def rule(self):
+        raise NotImplementedError()
 
     # -------------------------------------------------------------------------
     # MonteCarlo UCT
@@ -180,35 +186,59 @@ class ConnectFour:
         self.simulResultUpdate(simulated_win, simulated_total)
 
 
-def play(first = True):
+def play():
 
     startCol = input("Input column number to start your turn first.\nIf you don't enter anything then I will start first: ")
     node = ConnectFour(int(startCol), False) if startCol.isdigit() else ConnectFour(None, False)
+    print(node)
+    turn = True
 
-    while True:
+    while node.result() is None:
         mode = input("""Input the mode(case insensitive). 
-        'MonteCarlo' for Monte Carlo search, 
-        'Rule' for rule value, 
-        0~6 for column locating.
-        Your mode: """)
+'MonteCarlo' for Monte Carlo search, 
+'Rule' for rule value, 
+0~6 for column locating.
+Your mode: """)
+
         if mode.lower() == 'montecarlo':
-            pass
+            if not turn:
+                print("\nIt's not my turn, why you want to do MonteCarlo search? Input again.")
+                continue
+            nextCol = node.selection()
+            node = node.childs[nextCol]
         elif mode.lower() == 'rule':
-            pass
+            if not turn:
+                print("\nIt's not my turn, why you want to use rule? Input again.")
+                continue
+            nextCol = node.rule()
+            node = node.childs[nextCol]
+
         elif mode.isdigit():
             mode = int(mode)
             if mode not in range(ConnectFour.maxCol):
-                print("Invalid column number. Input again.")
+                print("\nInvalid column number. Input again.")
                 continue
             elif node.board[mode][-1] is not None:
-                print("Already full-filled column. Input again.")
+                print("\nAlready full-filled column. Input again.")
                 continue
             elif input("""ARE YOU SURE TO PUT ON COLUMN %d? 
-            IF YES, THEN WRITE 'YES' AND PRESS ENTER, OTHERWISE JUST ENTER: """ % (mode,)).lower() != "yes":
+IF YES, THEN WRITE 'YES' AND PRESS ENTER, OTHERWISE JUST ENTER: """ % (mode,)).lower() != "yes":
                 print("Ok, you rejected your input. Input again.")
+                continue
+            else:
+                node.expand()
+                node = node.childs[mode]
         else:
-            print("Wrong mode, input again.")
+            print("\nWrong mode, input again.")
             continue
 
-    pass
+        turn = not turn
+        print(node)
 
+    print(node)
+    print("%s WIN" % (ConnectFour.turnString[node.result()],))
+
+    return node.root()
+
+if __name__ == "__main__":
+    root = play()
