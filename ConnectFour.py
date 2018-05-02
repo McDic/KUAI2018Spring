@@ -194,7 +194,7 @@ class ConnectFour:
     # -------------------------------------------------------------------------
     # MonteCarlo UCT
 
-    def UCT(self, C = defaultBiasFactor):
+    def UCT(self, C = defaultBiasFactor/2):
         t = self.root().simul_total
         if t == 0:
             return -math.inf
