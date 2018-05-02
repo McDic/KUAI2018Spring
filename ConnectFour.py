@@ -194,7 +194,7 @@ class ConnectFour:
     # -------------------------------------------------------------------------
     # MonteCarlo UCT
 
-    def UCT(self, C = defaultBiasFactor/2):
+    def UCT(self, C = defaultBiasFactor):
         t = self.root().simul_total
         if t == 0:
             return -math.inf
@@ -203,11 +203,11 @@ class ConnectFour:
         else:
             return self.simul_win/self.simul_total + C * math.sqrt(math.log(t, math.e) / self.simul_total)
 
-    def maxUCTChild(self):
+    def maxUCTChild(self, C = defaultBiasFactor):
         UCTs = []
         for i in range(ConnectFour.maxCol):
             if self.childs[i] is not None:
-                UCTs.append((self.childs[i].UCT(), ConnectFour.columnPriority[i], i))
+                UCTs.append((self.childs[i].UCT(C = C), ConnectFour.columnPriority[i], i))
         UCTs.sort()
         return UCTs[-1]
 
@@ -263,7 +263,7 @@ class ConnectFour:
     def selection(self):
         self.expand()
         self.simulation(not self.turn)
-        return self.maxUCTChild()[-1]
+        return self.maxUCTChild(C=0)[-1]
 
     def simulation(self, targetTurn, maxOverTime = 10):
         simulated = 0
