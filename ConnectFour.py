@@ -62,7 +62,7 @@ def boardColumnAnalyze(board): # Return board analyzation by column
             result[None].append(col)
     return result
 
-def boardPut(board, col, turn):
+def boardPutted(board, col, turn):
     newboard = copy.deepcopy(board)
     if newboard[col][-1] is not None:
         raise IndexError("Already ful-filled column")
@@ -72,6 +72,15 @@ def boardPut(board, col, turn):
     h += 1
     newboard[col][h] = turn
     return newboard
+
+def boardPut(board, col, turn):
+    if board[col][-1] is not None:
+        raise IndexError("Already ful-filled column")
+    h = len(board[col]) - 1
+    while board[col][h] is None and h >= 0:
+        h -= 1
+    h += 1
+    board[col][h] = turn
 
 def boardStr(board):
     s = []
@@ -127,7 +136,7 @@ class ConnectFour:
         s = []
         for col in range(ConnectFour.maxCol):
             if self.childs[col] is not None:
-                s.append("\tChild #%d %s" % (col, self.childs[col].str_UCT()))
+                s.append("Child #%d %s" % (col, self.childs[col].str_UCT()))
         return "\n".join(s)
 
     def __str__(self):
@@ -137,7 +146,7 @@ class ConnectFour:
         if self.parent is not None:
             s[-1] += " (Parent ID: %d)" % (id(self.parent),)
         if self.col is not None:
-            s.append("Last placed with turn<%s> at column %d" % (ConnectFour.turnString[self.turn], self.col))
+            s.append("Last placed with %s's turn at column %d" % (ConnectFour.turnString[self.turn], self.col))
         else:
             s.append("Initial board")
         s.append(self.str_UCT())
@@ -152,7 +161,7 @@ class ConnectFour:
     # Basic Functions: Put new on board, Check result, etc.
 
     def put(self, col, turn):
-        return boardPut(self.board, col, turn)
+        return boardPutted(self.board, col, turn)
 
     def result(self):
         return boardResult(self.board)
@@ -240,10 +249,7 @@ class ConnectFour:
                 return None
             nextCol = random.choice(cols)
             # print("At turn %s, choose column %d from %s\n\t(Analyze = %s)" % (ConnectFour.turnString[tempTurn], nextCol, str(cols), str(analyze)))
-            try:
-                board = boardPut(board, nextCol, tempTurn)
-            except BaseException as e:
-                raise e
+            boardPut(board, nextCol, tempTurn)
             tempTurn = not tempTurn
         # print("Simulate Result:")
         # print(boardStr(board))
