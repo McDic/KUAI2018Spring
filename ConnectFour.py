@@ -5,6 +5,7 @@ import random
 
 def boardResult(board):  # True or False, otherwise None
     d = ((1, 0), (1, 1), (0, 1), (-1, 1))
+    # d = ((1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1))
     for x in range(ConnectFour.maxCol):
         for y in range(ConnectFour.maxRow):
             if board[x][y] is not None:
@@ -23,6 +24,44 @@ def boardResult(board):  # True or False, otherwise None
                         return board[x][y]
     return None
 
+def boardColumnAnalyze(board): # Return board analyzation by column
+    d = ((1, 0), (1, 1), (0, 1), (-1, 1))
+    # d = ((1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1))
+    result = {"full": [], True: [], False: [], None: []}
+    for col in range(ConnectFour.maxCol):
+        row = ConnectFour.maxRow - 1
+        while row >= 0 and board[col][row] is None:
+            row -= 1
+        row += 1
+        if row == ConnectFour.maxRow:
+            result["full"].append(col)
+        elif board[col][row] is None:
+            x, y = col, row
+            for targetTurn in (True, False):
+                for dx, dy in d:
+                    tempLen = 1
+                    for i in range(1, ConnectFour.winLength):
+                        x_, y_ = x + i*dx, y + i*dy
+                        if x_ in range(ConnectFour.maxCol) and y_ in range(ConnectFour.maxRow):
+                            if board[x_][y_] is not targetTurn:
+                                break
+                        else:
+                            break
+                        tempLen += 1
+                    for i in range(1, ConnectFour.winLength):
+                        x_, y_ = x - i*dx, y - i*dy
+                        if x_ in range(ConnectFour.maxCol) and y_ in range(ConnectFour.maxRow):
+                            if board[x_][y_] is not targetTurn:
+                                break
+                        else:
+                            break
+                        tempLen += 1
+                    if tempLen >= ConnectFour.winLength and col not in result[targetTurn]:
+                        result[targetTurn].append(col)
+        if col not in result[True] and col not in result[False] and col not in result["full"]:
+            result[None].append(col)
+    return result
+
 def boardPut(board, col, turn):
     newboard = copy.deepcopy(board)
     if newboard[col][-1] is not None:
@@ -34,6 +73,11 @@ def boardPut(board, col, turn):
     newboard[col][h] = turn
     return newboard
 
+def boardStr(board):
+    s = []
+    for row in range(ConnectFour.maxRow-1, -1, -1):
+        s.append(("%d:" % (row,)) + " ".join(ConnectFour.turnString[board[col][row]] for col in range(ConnectFour.maxCol)))
+    return "\n".join(s)
 
 class ConnectFour:
 
@@ -42,7 +86,7 @@ class ConnectFour:
     winLength = 4
     defaultBiasFactor = math.sqrt(2)
     columnPriority = [0, 1, 2, 3, 2, 1, 0]
-    UCTsortKey = lambda p: (p[0], ConnectFour.columnPriority[p[1]])
+    # UCTsortKey = lambda p: (p[0], ConnectFour.columnPriority[p[1]])
     turnString = {None: "-", True: "O", False: "X"}
 
     # -------------------------------------------------------------------------
@@ -56,6 +100,8 @@ class ConnectFour:
 
         self.simul_total = 0
         self.simul_win = 0
+        self.simul_lose = 0
+        
         if parent is None:
             self.board = [[None]*ConnectFour.maxRow for i in range(ConnectFour.maxCol)]
             if col is not None:
@@ -73,6 +119,17 @@ class ConnectFour:
 
         self.expanded = False
 
+    def str_UCT(self):
+        UCT = self.UCT()
+        return "UCT = %s (Win %d, Lose %d / Total %d)" % (str(UCT), self.simul_win, self.simul_lose, self.simul_total)
+
+    def str_childsUCT(self):
+        s = []
+        for col in range(ConnectFour.maxCol):
+            if self.childs[col] is not None:
+                s.append("\tChild #%d %s" % (col, self.childs[col].str_UCT()))
+        return "\n".join(s)
+
     def __str__(self):
         s = []
         s.append("-"*50)
@@ -83,10 +140,11 @@ class ConnectFour:
             s.append("Last placed with turn<%s> at column %d" % (ConnectFour.turnString[self.turn], self.col))
         else:
             s.append("Initial board")
-        s.append("Simulated: Win %d / Total %d (UCT %s)" % (self.simul_win, self.simul_total, str(self.UCT())))
+        s.append(self.str_UCT())
+        if self.childs != [None] * ConnectFour.maxCol:
+            s.append(self.str_childsUCT())
         s.append("")
-        for row in range(ConnectFour.maxRow-1, -1, -1):
-            s.append(("%d:" % (row,)) + " ".join(ConnectFour.turnString[self.board[col][row]] for col in range(ConnectFour.maxCol)))
+        s.append(boardStr(self.board))
         s.append("")
         return "\n".join(s)
 
@@ -104,6 +162,28 @@ class ConnectFour:
         while temp.parent is not None:
             temp = temp.parent
         return temp
+
+    def track(self, furthermoves):
+        s = ""
+        temp = self
+        for futuremove in furthermoves:
+            # print("MOVE %d" % futuremove)
+            if temp is None:
+                break
+            s += str(temp)
+            temp = temp.childs[futuremove]
+        return s
+
+    def backtrack(self):
+        moveHistory = []
+        temp = self
+        while temp is not None:
+            moveHistory.append(temp.col)
+            temp = temp.parent
+        moveHistory.pop()
+        moveHistory.reverse()
+        print("Backtrack for ID %d -> MoveHistory: %s" % (id(self), str(moveHistory)))
+        return self.root().track(moveHistory)
 
     # -------------------------------------------------------------------------
     # Rule value
@@ -127,8 +207,8 @@ class ConnectFour:
         UCTs = []
         for i in range(ConnectFour.maxCol):
             if self.childs[i] is not None:
-                UCTs.append((self.childs[i].UCT(), i))
-        UCTs.sort(key=ConnectFour.UCTsortKey)
+                UCTs.append((self.childs[i].UCT(), ConnectFour.columnPriority[i], i))
+        UCTs.sort()
         return UCTs[-1]
 
     # -------------------------------------------------------------------------
@@ -144,26 +224,38 @@ class ConnectFour:
                 self.childs[col] = None
         self.expanded = True
 
-    def simulation_pure(self):
+    def simulation_pure(self, printing = False):
         board = copy.deepcopy(self.board)
         tempTurn = not self.turn
         while boardResult(board) is None:
             cols = []
-            for col in range(ConnectFour.maxCol):
-                if board[col][-1] is None:
-                    cols.append(col)
+            analyze = boardColumnAnalyze(board)
+            if len(analyze[tempTurn]):
+                cols = analyze[tempTurn]
+            elif len(analyze[not tempTurn]):
+                cols = analyze[not tempTurn]
+            else:
+                cols = analyze[None]
             if len(cols) == 0:
                 return None
             nextCol = random.choice(cols)
-            board = boardPut(board, nextCol, tempTurn)
+            # print("At turn %s, choose column %d from %s\n\t(Analyze = %s)" % (ConnectFour.turnString[tempTurn], nextCol, str(cols), str(analyze)))
+            try:
+                board = boardPut(board, nextCol, tempTurn)
+            except BaseException as e:
+                raise e
             tempTurn = not tempTurn
+        # print("Simulate Result:")
+        # print(boardStr(board))
+        # print("*"*30)
         return boardResult(board)
 
-    def simulResultUpdate(self, winCount, totalCount):
+    def simulResultUpdate(self, winCount, totalCount, loseCount):
         self.simul_win += winCount
         self.simul_total += totalCount
+        self.simul_lose += loseCount
         if self.parent is not None:
-            self.parent.simulResultUpdate(winCount, totalCount)
+            self.parent.simulResultUpdate(winCount, totalCount, loseCount)
 
     # -------------------------------------------------------------------------
     # MonteCarlo MainFunc
@@ -171,20 +263,32 @@ class ConnectFour:
     def selection(self):
         self.expand()
         self.simulation(not self.turn)
-        maxUCT, maxUCTIndex = self.maxUCTChild()
-        return maxUCTIndex
+        return self.maxUCTChild()[-1]
 
-    def simulation(self, targetTurn, maxOverTime = 15):
+    def simulation(self, targetTurn, maxOverTime = 10):
+        simulated = 0
         startedTime = time.time()
         simulated_total = 0
         simulated_win = 0
+        simulated_lose = 0
         while time.time() - startedTime < maxOverTime:
-            pureSimulationResult = self.childs[self.maxUCTChild()[1]].simulation_pure()
-            if pureSimulationResult == targetTurn:
-                simulated_win += 1
-            simulated_total += 1
-        self.simulResultUpdate(simulated_win, simulated_total)
-
+            simulated += 1
+            maxUCT = self.maxUCTChild()
+            # print("Child %d Selected (UCT = %s)" % (maxUCT[-1], str(maxUCT[0])))
+            # print(self.childs[maxUCT[-1]])
+            pureSimulationResult = self.childs[maxUCT[-1]].simulation_pure()
+            if pureSimulationResult is targetTurn:
+                simulated_win = 1
+                simulated_lose = 0
+            elif pureSimulationResult is (not targetTurn):
+                simulated_win = 0
+                simulated_lose = 1
+            else:
+                simulated_win = 0
+                simulated_lose = 0
+            simulated_total = 1
+            self.childs[maxUCT[-1]].simulResultUpdate(simulated_win, simulated_total, simulated_lose)
+        print("\n%d times simulated in %.2f seconds" % (simulated, time.time() - startedTime))
 
 def play():
 
@@ -194,19 +298,22 @@ def play():
     turn = True
 
     while node.result() is None:
+        
+        node.expand()
+
         mode = input("""Input the mode(case insensitive). 
-'MonteCarlo' for Monte Carlo search, 
-'Rule' for rule value, 
+'MonteCarlo' or 'MC' for Monte Carlo search, 
+'Rule' or 'R' for rule value, 
 0~6 for column locating.
 Your mode: """)
 
-        if mode.lower() == 'montecarlo':
+        if mode.lower() in ('montecarlo', 'mc'):
             if not turn:
                 print("\nIt's not my turn, why you want to do MonteCarlo search? Input again.")
                 continue
             nextCol = node.selection()
             node = node.childs[nextCol]
-        elif mode.lower() == 'rule':
+        elif mode.lower() in ('rule', 'r'):
             if not turn:
                 print("\nIt's not my turn, why you want to use rule? Input again.")
                 continue
@@ -226,19 +333,20 @@ IF YES, THEN WRITE 'YES' AND PRESS ENTER, OTHERWISE JUST ENTER: """ % (mode,)).l
                 print("Ok, you rejected your input. Input again.")
                 continue
             else:
-                node.expand()
                 node = node.childs[mode]
         else:
             print("\nWrong mode, input again.")
             continue
 
         turn = not turn
+        if node.parent is not None:
+            print("\nColumn %d selected:" % (nextCol,))
+            print(node.parent.str_childsUCT())
         print(node)
 
-    print(node)
-    print("%s WIN" % (ConnectFour.turnString[node.result()],))
-
-    return node.root()
+    print("%s WIN\n\n" % (ConnectFour.turnString[node.result()],))
+    return node
 
 if __name__ == "__main__":
-    root = play()
+    last_node = play()
+    #print(last_node.backtrack())
