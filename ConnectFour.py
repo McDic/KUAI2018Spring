@@ -200,6 +200,44 @@ class ConnectFour:
     def rule(self):
         raise NotImplementedError()
 
+     # Pseudo_code!!!!!  
+    opponent_node == 'X'
+    our_node == 'O'
+    if(first_turn):
+        place(board[0][2] or board[0][4]) #form the below , col[0]~[6], row[0]~row[5] if my fisrt turn put col[2] or col[4], just default in col[2]
+    elif(second_turn):
+        place(board[0][3]) #if our second turn place on middle
+
+    elif(after_second_turn && ('X' == board[0][2] && 'X'==board[0][3]) ) #defense two row in row[0]
+        if('X' == board[0][5]) #defense XX-X
+            place(board[0][4])
+        elif(previous_opponent_node[row][col] != colfull )
+            place(previous_opponent_node[row+1][col]) #place at up of where opponent's previous node
+        else
+            place(rand(colNum)) #if column full place any column
+    elif(after_second_turn && ('X' == board[0][4] && 'X'==board[0][3]) )
+        if('X' == board[0][1]) #defense X-XX
+            place(board[0][2])
+        elif(previous_opponent_node[row][col] != colfull )
+            place(previous_opponent_node[row+1][col]) 
+        else
+            place(rand(colNum)) 
+    elif(after_second_turn && previous_opponent_node[row][col] != colfull ) #place at up of opponent
+        place(previous_opponent_node[row+1][col])
+    elif(colfull)
+        place(rand(colNum))  #if column full place any column
+
+    """ Basic rule is to place up of opponent's node , but it needs to be careful of missing
+    at first couple times. Such as if opponent takes node horizontally at first in row[0], 
+    our basic rule will just put at top so we can't defense the attack. So in first few times,
+    the horizontal attack must be defensed. Like @@XX!X@ or @X!XX@@ , ! needs to be defensed.
+    or just @@!XX!@ or @!XX!@@ , ! needs to be defensed. After the defense in row[0] the shape
+    of horizontal attack like above is hard to be seen. As a result just putting up against
+    opponent's node, we can successfully defense most of the attacks.""" 
+
+    """The logic of the if-else is little ackward so it needs to be changed little bit, the basic
+    logic of this rule is explained above. If there is something curious about the logic, just ask me"""
+
     # -------------------------------------------------------------------------
     # MonteCarlo UCT
 
