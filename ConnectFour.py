@@ -197,46 +197,50 @@ class ConnectFour:
     # -------------------------------------------------------------------------
     # Rule value
 
-    def rule(self):
-        raise NotImplementedError()
+    def rule(self, firstTurn = False):
+        if not firstTurn:
+            analyze = boardColumnAnalyze(self.board)
+            if analyze[not self.turn]:
+                return analyze[not self.turn][0]
+            elif analyze[self.turn]:
+                return analyze[self.turn][0]
+            else:
+                height = []
+                for i in range(ConnectFour.maxCol):
+                    height.append(ConnectFour.maxCol - 1)
+                    while self.board[i][height[i]] is None and height[i] >= 0:
+                        height[i] -= 1
+                    height[i] += 1
 
-     # Pseudo_code!!!!!  
-    opponent_node == 'X'
-    our_node == 'O'
-    if(first_turn):
-        place(board[0][2] or board[0][4]) #form the below , col[0]~[6], row[0]~row[5] if my fisrt turn put col[2] or col[4], just default in col[2]
-    elif(second_turn):
-        place(board[0][3]) #if our second turn place on middle
+                for i in range(ConnectFour.maxCol - 3): # -XX-
+                    if height[i+3] - height[i] in (0, 3, -3):
+                        b = tuple(self.board[i+j][height[i]+j*(height[i+3] - height[i])//3] for j in range(4))
+                        if b == (None, self.turn, self.turn, None):
+                            return random.choice([i, i+3])
 
-    elif(after_second_turn && ('X' == board[0][2] && 'X'==board[0][3]) ) #defense two row in row[0]
-        if('X' == board[0][5]) #defense XX-X
-            place(board[0][4])
-        elif(previous_opponent_node[row][col] != colfull )
-            place(previous_opponent_node[row+1][col]) #place at up of where opponent's previous node
-        else
-            place(rand(colNum)) #if column full place any column
-    elif(after_second_turn && ('X' == board[0][4] && 'X'==board[0][3]) )
-        if('X' == board[0][1]) #defense X-XX
-            place(board[0][2])
-        elif(previous_opponent_node[row][col] != colfull )
-            place(previous_opponent_node[row+1][col]) 
-        else
-            place(rand(colNum)) 
-    elif(after_second_turn && previous_opponent_node[row][col] != colfull ) #place at up of opponent
-        place(previous_opponent_node[row+1][col])
-    elif(colfull)
-        place(rand(colNum))  #if column full place any column
+                for i in range(ConnectFour.maxCol - 2): # -XX-
+                    if height[i+2] - height[i] in (0, 2, -2):
+                        b = tuple(self.board[i+j][height[i]+j*(height[i+2] - height[i])//2] for j in range(3))
+                        if b == (self.turn, None, self.turn):
+                            return i+1
 
-    """ Basic rule is to place up of opponent's node , but it needs to be careful of missing
-    at first couple times. Such as if opponent takes node horizontally at first in row[0], 
-    our basic rule will just put at top so we can't defense the attack. So in first few times,
-    the horizontal attack must be defensed. Like @@XX!X@ or @X!XX@@ , ! needs to be defensed.
-    or just @@!XX!@ or @!XX!@@ , ! needs to be defensed. After the defense in row[0] the shape
-    of horizontal attack like above is hard to be seen. As a result just putting up against
-    opponent's node, we can successfully defense most of the attacks.""" 
+                if self.col not in analyze["full"]: # Same column as previous
+                    return self.col
 
-    """The logic of the if-else is little ackward so it needs to be changed little bit, the basic
-    logic of this rule is explained above. If there is something curious about the logic, just ask me"""
+                maxMyHeight = -1
+                maxMyCol = None
+                for col in range(ConnectFour.maxCol): # Select highest
+                    if col not in analyze["full"]:
+                        for row in range(height[col]-1, -1, -1):
+                            if self.board[col][row] == (not self.turn):
+                                break
+                        if row > maxMyHeight:
+                            maxMyHeight = row
+                            maxMyCol = col
+                return maxMyCol
+
+        else:
+            return 2
 
     # -------------------------------------------------------------------------
     # MonteCarlo UCT
@@ -304,10 +308,13 @@ class ConnectFour:
     # -------------------------------------------------------------------------
     # MonteCarlo MainFunc
 
-    def selection(self):
-        self.expand()
-        self.simulation(not self.turn)
-        return self.maxUCTChild(C=0)[-1]
+    def selection(self, firstTurn = False):
+        if not firstTurn:
+            self.expand()
+            self.simulation(not self.turn)
+            return self.maxUCTChild(C=0)[-1]
+        else: # First Turn Restriction
+            return 2
 
     def simulation(self, targetTurn, maxOverTime = 10):
         simulated = 0
@@ -338,6 +345,7 @@ def play():
 
     startCol = input("Input column number to start your turn first.\nIf you don't enter anything then I will start first: ")
     node = ConnectFour(int(startCol), False) if startCol.isdigit() else ConnectFour(None, False)
+    firstTurn = not startCol.isdigit()
     print(node)
     turn = True
 
@@ -355,13 +363,13 @@ Your mode: """)
             if not turn:
                 print("\nIt's not my turn, why you want to do MonteCarlo search? Input again.")
                 continue
-            nextCol = node.selection()
+            nextCol = node.selection(firstTurn)
             node = node.childs[nextCol]
         elif mode.lower() in ('rule', 'r'):
             if not turn:
                 print("\nIt's not my turn, why you want to use rule? Input again.")
                 continue
-            nextCol = node.rule()
+            nextCol = node.rule(firstTurn)
             node = node.childs[nextCol]
 
         elif mode.isdigit():
@@ -387,6 +395,9 @@ IF YES, THEN WRITE 'YES' AND PRESS ENTER, OTHERWISE JUST ENTER: """ % (mode,)).l
             print("\nColumn %d selected:" % (nextCol,))
             print(node.parent.str_childsUCT())
         print(node)
+
+        if firstTurn:
+            firstTurn = False
 
     print("%s WIN\n\n" % (ConnectFour.turnString[node.result()],))
     return node
