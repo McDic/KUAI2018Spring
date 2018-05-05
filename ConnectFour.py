@@ -231,6 +231,7 @@ class ConnectFour:
                 maxMyCol = None
                 for col in range(ConnectFour.maxCol): # Select highest
                     if col not in analyze["full"]:
+                        row = 0
                         for row in range(height[col]-1, -1, -1):
                             if self.board[col][row] == (not self.turn):
                                 break
