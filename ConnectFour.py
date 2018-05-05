@@ -207,7 +207,7 @@ class ConnectFour:
             else:
                 height = []
                 for i in range(ConnectFour.maxCol):
-                    height.append(ConnectFour.maxCol - 1)
+                    height.append(ConnectFour.maxRow - 1)
                     while self.board[i][height[i]] is None and height[i] >= 0:
                         height[i] -= 1
                     height[i] += 1
